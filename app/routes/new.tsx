@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { JsCodeSnippetModel } from "@/models/menu-item";
+import { JsCodeSnippetModel } from "@/models/js-code-snippets";
 import { Form, redirect, useNavigate } from "@remix-run/react";
 
 export const action = async ({ request }: { request: Request }) => {

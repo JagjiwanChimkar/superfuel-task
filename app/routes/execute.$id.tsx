@@ -2,7 +2,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { executeCode } from "@/entry.server";
-import JsCodeSnippet, { JsCodeSnippetModel } from "@/models/menu-item";
+import JsCodeSnippet, { JsCodeSnippetModel } from "@/models/js-code-snippets";
 import { json } from "@remix-run/cloudflare";
 import { useLoaderData } from "@remix-run/react";
 

@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { title } from "@/config.shared";
-import JsCodeSnippet, { JsCodeSnippetModel } from "@/models/menu-item";
+import JsCodeSnippet, { JsCodeSnippetModel } from "@/models/js-code-snippets";
 import { LoaderFunction, type MetaFunction } from "@remix-run/cloudflare";
 import { useLoaderData, useNavigate } from "@remix-run/react";
 export const meta: MetaFunction = () => {
