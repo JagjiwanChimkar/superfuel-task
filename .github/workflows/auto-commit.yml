@@ -7,7 +7,7 @@ on:
       target_branch:
         description: 'Branch to push to'
         required: true
-        default: development
+        default: master
       commit_message:
         description: 'Commit message'
         required: false
