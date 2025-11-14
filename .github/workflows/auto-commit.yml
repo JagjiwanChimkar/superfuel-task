@@ -16,11 +16,14 @@ on:
         required: false
         default: 'Update by GitHub App'
 
+# Skip workflow when GitHub App pushes (prevents infinite loop)
+
 permissions:
   contents: write
 
 jobs:
   app-auth-and-push:
+    if: ${{ github.actor != 'version-merge-bot[bot]' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout (do not persist credentials)
