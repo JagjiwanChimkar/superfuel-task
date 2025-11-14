@@ -1,0 +1,76 @@
+name: Use GitHub App (No Scripts)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  app-auth:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Generate GitHub App JWT (pure bash)
+        id: jwt
+        env:
+          APP_ID: ${{ secrets.APP_ID }}
+          PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
+        run: |
+          # Write private key to file
+          echo "$PRIVATE_KEY" > private-key.pem
+
+          # Base64 header & payload (no newlines)
+          header=$(printf '{"alg":"RS256","typ":"JWT"}' | openssl base64 -A | tr '+/' '-_' | tr -d '=')
+          
+          now=$(date +%s)
+          iat=$((now - 60))
+          exp=$((now + 600))
+
+          payload=$(printf '{"iat":%d,"exp":%d,"iss":"%s"}' "$iat" "$exp" "$APP_ID" \
+             | openssl base64 -A | tr '+/' '-_' | tr -d '=')
+
+          unsigned_token="${header}.${payload}"
+
+          # Sign using private key → RS256
+          signature=$(printf '%s' "$unsigned_token" \
+            | openssl dgst -sha256 -sign private-key.pem \
+            | openssl base64 -A | tr '+/' '-_' | tr -d '=')
+
+          jwt="${unsigned_token}.${signature}"
+          echo "::set-output name=jwt::$jwt"
+
+      - name: Create Installation Token
+        id: token
+        env:
+          INSTALL_ID: ${{ secrets.APP_INSTALLATION_ID }}
+        run: |
+          jwt="${{ steps.jwt.outputs.jwt }}"
+
+          response=$(curl -s -X POST \
+            -H "Authorization: Bearer $jwt" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/app/installations/$INSTALL_ID/access_tokens)
+
+          token=$(echo "$response" | jq -r '.token')
+          echo "::set-output name=token::$token"
+
+
+      - name: Test GitHub App token
+        run: |
+          echo "${{ steps.token.outputs.token }}" | gh auth login --with-token
+          gh auth status
+
+      - name: Push using GitHub App token
+        run: |
+            git config user.name "my-app[bot]"
+            git config user.email "my-app[bot]@users.noreply.github.com"
+            git remote set-url origin https://x-access-token:${{ steps.token.outputs.token }}@github.com/${{ github.repository }}.git
+
+            git add .
+            git commit -m "Update by GitHub App"
+            git push origin HEAD:development
+    
