@@ -1,6 +1,5 @@
 name: Use GitHub App (No Scripts) - Push
 
-# triggers: manual by default. See notes below for PR/label automation options.
 on:
   push:
     branches:
