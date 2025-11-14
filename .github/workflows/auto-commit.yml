@@ -4,7 +4,7 @@ name: Use GitHub App (No Scripts) - Push
 on:
   push:
     branches:
-      - master
+      - dum-dev-1
   workflow_dispatch:
     inputs:
       target_branch:
