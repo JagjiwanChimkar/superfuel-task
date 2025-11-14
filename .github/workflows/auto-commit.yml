@@ -16,7 +16,6 @@ on:
         required: false
         default: 'Update by GitHub App'
 
-
 permissions:
   contents: write
 
