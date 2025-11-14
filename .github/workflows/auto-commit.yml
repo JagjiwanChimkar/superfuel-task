@@ -105,7 +105,7 @@ jobs:
 
           # choose target branch from input
           TARGET_BRANCH="${{ github.event.inputs.target_branch }}"
-          COMMIT_MSG="${{ github.event.inputs.commit_message }}"
+          COMMIT_MSG="Update by GitHub App"
 
           # create a new commit - example change
           echo "Updated at $(date -u)" >> app-bot-update.txt
