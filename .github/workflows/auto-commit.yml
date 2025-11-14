@@ -1,18 +1,41 @@
-name: Use GitHub App (No Scripts)
+name: Use GitHub App (No Scripts) - Push
 
+# triggers: manual by default. See notes below for PR/label automation options.
 on:
   workflow_dispatch:
+    inputs:
+      target_branch:
+        description: 'Branch to push to'
+        required: true
+        default: development
+      commit_message:
+        description: 'Commit message'
+        required: false
+        default: 'Update by GitHub App'
 
 permissions:
   contents: write
 
 jobs:
-  app-auth:
+  app-auth-and-push:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout
+      - name: Checkout (do not persist credentials)
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install tools (jq, gh, openssl is preinstalled)
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y jq
+          # install gh CLI
+          type -p gh || {
+            curl -fsSL https://github.com/cli/cli/releases/latest/download/gh_$(uname -s)_$(uname -m).deb -o ghcli.deb
+            sudo dpkg -i ghcli.deb || sudo apt-get -f install -y
+            rm -f ghcli.deb
+          }
 
       - name: Generate GitHub App JWT (pure bash)
         id: jwt
@@ -20,57 +43,80 @@ jobs:
           APP_ID: ${{ secrets.APP_ID }}
           PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
         run: |
-          # Write private key to file
-          echo "$PRIVATE_KEY" > private-key.pem
+          set -euo pipefail
 
-          # Base64 header & payload (no newlines)
+          # write private key file safely
+          umask 077
+          printf '%s\n' "$PRIVATE_KEY" > /tmp/private-key.pem
+
           header=$(printf '{"alg":"RS256","typ":"JWT"}' | openssl base64 -A | tr '+/' '-_' | tr -d '=')
-          
+
           now=$(date +%s)
           iat=$((now - 60))
           exp=$((now + 600))
 
           payload=$(printf '{"iat":%d,"exp":%d,"iss":"%s"}' "$iat" "$exp" "$APP_ID" \
-             | openssl base64 -A | tr '+/' '-_' | tr -d '=')
+            | openssl base64 -A | tr '+/' '-_' | tr -d '=')
 
           unsigned_token="${header}.${payload}"
 
-          # Sign using private key → RS256
           signature=$(printf '%s' "$unsigned_token" \
-            | openssl dgst -sha256 -sign private-key.pem \
+            | openssl dgst -sha256 -sign /tmp/private-key.pem \
             | openssl base64 -A | tr '+/' '-_' | tr -d '=')
 
           jwt="${unsigned_token}.${signature}"
-          echo "::set-output name=jwt::$jwt"
+
+          echo "jwt=${jwt}" >> $GITHUB_OUTPUT
 
       - name: Create Installation Token
         id: token
         env:
           INSTALL_ID: ${{ secrets.APP_INSTALLATION_ID }}
         run: |
+          set -euo pipefail
           jwt="${{ steps.jwt.outputs.jwt }}"
-
-          response=$(curl -s -X POST \
+          resp=$(curl -s -X POST \
             -H "Authorization: Bearer $jwt" \
             -H "Accept: application/vnd.github+json" \
-            https://api.github.com/app/installations/$INSTALL_ID/access_tokens)
+            "https://api.github.com/app/installations/${INSTALL_ID}/access_tokens")
 
-          token=$(echo "$response" | jq -r '.token')
-          echo "::set-output name=token::$token"
+          token=$(echo "$resp" | jq -r '.token // empty')
+          if [ -z "$token" ]; then
+            echo "Failed to get installation token: $resp"
+            exit 1
+          fi
+          echo "token=${token}" >> $GITHUB_OUTPUT
 
-
-      - name: Test GitHub App token
+      - name: Auth gh with App token
         run: |
           echo "${{ steps.token.outputs.token }}" | gh auth login --with-token
           gh auth status
 
-      - name: Push using GitHub App token
+      - name: Make change (example) and push using GitHub App token
+        env:
+          APP_TOKEN: ${{ steps.token.outputs.token }}
         run: |
-            git config user.name "my-app[bot]"
-            git config user.email "my-app[bot]@users.noreply.github.com"
-            git remote set-url origin https://x-access-token:${{ steps.token.outputs.token }}@github.com/${{ github.repository }}.git
+          set -euo pipefail
+          git config user.name "my-app[bot]"
+          git config user.email "my-app[bot]@users.noreply.github.com"
 
-            git add .
-            git commit -m "Update by GitHub App"
-            git push origin HEAD:development
-    
+          # choose target branch from input
+          TARGET_BRANCH="${{ github.event.inputs.target_branch }}"
+          COMMIT_MSG="${{ github.event.inputs.commit_message }}"
+
+          # create a new commit - example change
+          echo "Updated at $(date -u)" >> app-bot-update.txt
+          git add app-bot-update.txt || true
+
+          # commit only if there are changes
+          if git diff --staged --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+
+          git commit -m "${COMMIT_MSG}"
+
+          # push using installation token
+          git remote set-url origin "https://x-access-token:${APP_TOKEN}@github.com/${{ github.repository }}.git"
+          git push origin HEAD:"${TARGET_BRANCH}"
+up
