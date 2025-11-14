@@ -16,7 +16,6 @@ on:
         required: false
         default: 'Update by GitHub App'
 
-# Skip workflow when GitHub App pushes (prevents infinite loop)
 
 permissions:
   contents: write
