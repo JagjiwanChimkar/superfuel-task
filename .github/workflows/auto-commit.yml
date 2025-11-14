@@ -104,7 +104,7 @@ jobs:
           git config user.email "my-app[bot]@users.noreply.github.com"
 
           # choose target branch from input
-          TARGET_BRANCH="${{ github.event.inputs.target_branch }}"
+          TARGET_BRANCH="${{ github.ref_name }}"
           COMMIT_MSG="Update by GitHub App"
 
           # create a new commit - example change
