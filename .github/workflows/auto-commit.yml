@@ -119,4 +119,3 @@ jobs:
           # push using installation token
           git remote set-url origin "https://x-access-token:${APP_TOKEN}@github.com/${{ github.repository }}.git"
           git push origin HEAD:"${TARGET_BRANCH}"
-up
